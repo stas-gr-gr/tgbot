@@ -5,11 +5,11 @@ import os
 import time
 from telegram import Update
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    filters,
-    CallbackContext,
+    filters,  # ✅ Исправлено (раньше было Filters)
+    CallbackContext
 )
 
 # === Читаем переменные окружения ===
@@ -42,7 +42,7 @@ async def update_data(update: Update, context: CallbackContext) -> None:
 # === Основная функция ===
 def main():
     """Запуск бота"""
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     # Добавляем команды
     app.add_handler(CommandHandler("start", start))
@@ -54,99 +54,6 @@ def main():
 
 if _name_ == "_main_":
     main()
-        return
-    update.message.reply_text("🔑 Введите пароль:")
-    return "PASSWORD"
-
-def check_password(update: Update, context: CallbackContext) -> None:
-    """Проверяет введенный пароль."""
-    user_id = update.message.from_user.id
-    if update.message.text == PASSWORD:
-        AUTHORIZED_USERS.add(user_id)
-        update.message.reply_text("✅ Доступ разрешён! Введите /меню.")
-        return ConversationHandler.END
-    update.message.reply_text("❌ Неверный пароль. Попробуйте снова:")
-    return "PASSWORD"
-
-def menu(update: Update, context: CallbackContext) -> None:
-    """Отображает главное меню."""
-    if update.message.from_user.id not in AUTHORIZED_USERS:
-        update.message.reply_text("🚫 Вы не авторизованы. Введите /start и пароль.")
-        return
-    keyboard = [["/финансы", "/учет_продаж"], ["/отгрузки", "/зарплаты"], ["/выплаты", "/склад"], ["/обновить", "/поиск"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    update.message.reply_text("📌 Выберите раздел:", reply_markup=reply_markup)
-
-def update_data(update: Update, context: CallbackContext) -> None:
-    """Обновляет данные из Google Drive."""
-    if download_latest_excel():
-        update.message.reply_text("✅ Данные обновлены! Введите /меню.")
-    else:
-        update.message.reply_text("❌ Ошибка обновления данных.")
-
-def get_finance(update: Update, context: CallbackContext) -> None:
-    """Выводит финансовые данные."""
-    if not os.path.exists(EXCEL_FILE_PATH):
-        update.message.reply_text("❌ Данные не загружены. Попробуйте /обновить.")
-        return
-    df_finance = pd.read_excel(EXCEL_FILE_PATH, sheet_name="Финансы")
-    update.message.reply_text(f"📊 Финансы:\n{df_finance.to_string(index=False)}")
-
-def get_sales(update: Update, context: CallbackContext) -> None:
-    """Выводит отчет по продажам."""
-    if not os.path.exists(EXCEL_FILE_PATH):
-        update.message.reply_text("❌ Данные не загружены. Попробуйте /обновить.")
-        return
-    df_sales = pd.read_excel(EXCEL_FILE_PATH, sheet_name="Учет продаж Wildberries")
-    update.message.reply_text(f"📈 Учет продаж:\n{df_sales.head(5).to_string(index=False)}")
-
-def get_shipments(update: Update, context: CallbackContext) -> None:
-    """Выводит отчет по отгрузкам."""
-    if not os.path.exists(EXCEL_FILE_PATH):
-        update.message.reply_text("❌ Данные не загружены. Попробуйте /обновить.")
-        return
-    df_shipments = pd.read_excel(EXCEL_FILE_PATH, sheet_name="Отгрузка")
-    update.message.reply_text(f"🚛 Отгрузки:\n{df_shipments.head(5).to_string(index=False)}")
-
-def get_salaries(update: Update, context: CallbackContext) -> None:
-    """Выводит отчет по зарплатам."""
-    if not os.path.exists(EXCEL_FILE_PATH):
-        update.message.reply_text("❌ Данные не загружены. Попробуйте /обновить.")
-        return
-    df_salaries = pd.read_excel(EXCEL_FILE_PATH, sheet_name="Зарплаты")
-    update.message.reply_text(f"💸 Зарплаты:\n{df_salaries.head(5).to_string(index=False)}")
-
-def search_data(update: Update, context: CallbackContext) -> None:
-    """ИИ-поиск по данным."""
-    if not os.path.exists(EXCEL_FILE_PATH):
-        update.message.reply_text("❌ Данные не загружены. Попробуйте /обновить.")
-        return
-    query = " ".join(context.args).lower()
-    result = "🔍 Результаты поиска:\n"
-    for sheet_name in ["Финансы", "Учет продаж Wildberries", "Отгрузка", "Зарплаты"]:
-        df = pd.read_excel(EXCEL_FILE_PATH, sheet_name=sheet_name)
-        matches = df[df.astype(str).apply(lambda x: x.str.contains(query, case=False, na=False)).any(axis=1)]
-        if not matches.empty:
-            result += f"\n📌 {sheet_name}:\n{matches.to_string(index=False)}\n"
-    if "📌" not in result:
-        result = "❌ Ничего не найдено."
-    update.message.reply_text(result)
-
-def main():
-    """Запуск бота."""
-    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    conv_handler = ConversationHandler(entry_points=[CommandHandler("start", start)], states={"PASSWORD": [MessageHandler(Filters.text, check_password)]}, fallbacks=[])
-    dp.add_handler(conv_handler)
-    dp.add_handler(CommandHandler("меню", menu))
-    dp.add_handler(CommandHandler("обновить", update_data))
-    dp.add_handler(CommandHandler("финансы", get_finance))
-    dp.add_handler(CommandHandler("учет_продаж", get_sales))
-    dp.add_handler(CommandHandler("отгрузки", get_shipments))
-    dp.add_handler(CommandHandler("зарплаты", get_salaries))
-    dp.add_handler(CommandHandler("поиск", search_data))
-    updater.start_polling()
-    updater.idle()
 
 if _name_ == "_main_":
     main()

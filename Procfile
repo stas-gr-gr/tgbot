@@ -1,1 +1,1 @@
-worker: python bot.ру
+worker: python bot.py

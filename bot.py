@@ -133,7 +133,7 @@ def main():
 
     # Добавляем команды
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("обновить", update_data))
+    app.add_handler(CommandHandler("update", update_data))
     app.add_handler(CommandHandler("финансы", finances))
     app.add_handler(CommandHandler("период", filter_by_period))
     app.add_handler(CommandHandler("проект", filter_by_project))

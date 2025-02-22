@@ -2,38 +2,58 @@ import logging
 import requests
 import pandas as pd
 import os
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
+import time
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    CallbackContext,
+)
 
-# === НАСТРОЙКИ БОТА ===
-TELEGRAM_BOT_TOKEN = "7811619569:AAFElZtq6qIgPtwsJ8mRrlYIEm3cB8g1d6U"
-PASSWORD = "7070"
-AUTHORIZED_USERS = set()
+# === Читаем переменные окружения ===
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GOOGLE_DRIVE_FILE_URL = os.getenv("GOOGLE_DRIVE_FILE_URL")
 
-# === ССЫЛКА НА GOOGLE DRIVE ===
-GOOGLE_DRIVE_FILE_URL = "https://drive.google.com/uc?export=download&id=1fH6InkrqhZWUDZRz_OJ-DHe_l_M0_9Oc"
-EXCEL_FILE_PATH = "ФИНАЛ.xlsx"
+# === Логирование (для отладки) ===
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
-# === ЛОГИРОВАНИЕ ===
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(_name_)
+# === Функции бота ===
+async def start(update: Update, context: CallbackContext) -> None:
+    """Отправляет приветственное сообщение"""
+    await update.message.reply_text("Привет! Я бот учёта продаж. Напишите /обновить")
 
-# === ФУНКЦИЯ ДЛЯ СКАЧИВАНИЯ ФАЙЛА ===
-def download_latest_excel():
-    """Загружает последнюю версию файла из Google Drive."""
+async def update_data(update: Update, context: CallbackContext) -> None:
+    """Скачивает и обновляет файл данных из Google Drive"""
+    await update.message.reply_text("Обновляю данные...")
     response = requests.get(GOOGLE_DRIVE_FILE_URL)
+    
     if response.status_code == 200:
-        with open(EXCEL_FILE_PATH, "wb") as file:
+        with open("data.xlsx", "wb") as file:
             file.write(response.content)
-        return True
-    return False
+        await update.message.reply_text("✅ Данные обновлены!")
+    else:
+        await update.message.reply_text("❌ Ошибка обновления. Проверьте ссылку.")
 
-# === ФУНКЦИИ БОТА ===
-def start(update: Update, context: CallbackContext) -> None:
-    """Запрашивает пароль для входа."""
-    user_id = update.message.from_user.id
-    if user_id in AUTHORIZED_USERS:
-        update.message.reply_text("✅ Вы уже вошли в систему. Введите /меню")
+# === Основная функция ===
+def main():
+    """Запуск бота"""
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # Добавляем команды
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("обновить", update_data))
+
+    # Запуск бота
+    logging.info("Бот запущен...")
+    app.run_polling()
+
+if _name_ == "_main_":
+    main()
         return
     update.message.reply_text("🔑 Введите пароль:")
     return "PASSWORD"
